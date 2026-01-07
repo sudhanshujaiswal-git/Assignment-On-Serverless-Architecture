@@ -1,0 +1,29 @@
+import boto3
+from botocore.exceptions import ClientError
+
+s3 = boto3.client("s3")
+
+TARGET_BUCKETS = [
+    "sud-assignment3-unencrypted-bucket",
+    "sud-assignment3-encrypted-bucket"
+]
+
+def lambda_handler(event, context):
+    unencrypted = []
+    
+    for bucket_name in TARGET_BUCKETS:
+        try:
+            s3.get_bucket_encryption(Bucket=bucket_name)
+            print(f"Encrypted bucket: {bucket_name}")
+        except ClientError as e:
+            code = e.response["Error"]["Code"]
+            if code == "ServerSideEncryptionConfigurationNotFoundError":
+                unencrypted.append(bucket_name)
+                print(f"UNENCRYPTED bucket: {bucket_name}")
+            else:
+                print(f"Error on {bucket_name}: {code}")
+
+    if unencrypted:
+        print(f"Unencrypted buckets found: {unencrypted}")
+    else:
+        print("All target buckets have default encryption.")
