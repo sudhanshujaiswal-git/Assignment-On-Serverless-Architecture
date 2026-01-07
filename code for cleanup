@@ -1,0 +1,28 @@
+import boto3
+from datetime import datetime, timezone, timedelta
+
+s3 = boto3.client("s3")
+
+BUCKET_NAME = "sud-assignment2-cleanup-bucket-2026"  # CHANGE TO YOUR BUCKET NAME
+DAYS_OLD = 30
+
+def lambda_handler(event, context):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=DAYS_OLD)
+    paginator = s3.get_paginator("list_objects_v2")
+    deleted = []
+
+    for page in paginator.paginate(Bucket=BUCKET_NAME):
+        if "Contents" not in page:
+            continue
+        for obj in page["Contents"]:
+            key = obj["Key"]
+            last_modified = obj["LastModified"]
+            if last_modified < cutoff:
+                s3.delete_object(Bucket=BUCKET_NAME, Key=key)
+                deleted.append(key)
+                print(f"Deleted: {key}")
+
+    if not deleted:
+        print("No objects older than 30 days.")
+    else:
+        print(f"Total deleted: {len(deleted)}")
