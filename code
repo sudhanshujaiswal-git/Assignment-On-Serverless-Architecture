@@ -1,0 +1,48 @@
+import boto3
+from datetime import datetime, timedelta
+
+ec2 = boto3.client('ec2')
+
+VOLUME_ID = 'vol-0ae7904b966048f71'  # Assignment 4 target volume
+REGION_NAME = 'us-east-1'  # Update if different
+SNAPSHOT_NAME = 'Assignment4-EBS-Snapshot'
+
+def lambda_handler(event, context):
+    try:
+        # Create EBS snapshot
+        snapshot = ec2.create_snapshot(
+            VolumeId=VOLUME_ID,
+            Description=f'Automated EBS Snapshot for Assignment 4 - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+            TagSpecifications=[
+                {
+                    'ResourceType': 'snapshot',
+                    'Tags': [
+                        {'Key': 'Name', 'Value': SNAPSHOT_NAME},
+                        {'Key': 'Assignment', 'Value': '4'},
+                        {'Key': 'VolumeId', 'Value': VOLUME_ID}
+                    ]
+                }
+            ]
+        )
+        
+        snapshot_id = snapshot['SnapshotId']
+        
+        # Wait for snapshot to complete
+        waiter = ec2.get_waiter('snapshot_completed')
+        waiter.wait(SnapshotIds=[snapshot_id])
+        
+        return {
+            'statusCode': 200,
+            'body': {
+                'message': 'EBS Snapshot created successfully',
+                'SnapshotId': snapshot_id,
+                'VolumeId': VOLUME_ID,
+                'State': 'completed'
+            }
+        }
+        
+    except Exception as e:
+        return {
+            'statusCode': 500,
+            'body': f'Error creating snapshot: {str(e)}'
+        }
